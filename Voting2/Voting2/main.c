@@ -3,11 +3,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#pragma warning(disable : 4996)
+#pragma warning(disable : 4996) // disabling not safe warnings
 
 #define MAX_STR_LEN 32 // maximum credential length
 
-typedef enum {
+typedef enum { // enum type for votes
 	VOTE_NONE = 0,
 	VOTE_YES,
 	VOTE_NO,
@@ -18,12 +18,12 @@ typedef struct {
 	char username[MAX_STR_LEN];
 	char password[MAX_STR_LEN];
 	vote_res_t vote_res;
-} user_t;
+} user_t; // user struct that stores the username, password and vote result
 
 typedef struct {
 	user_t* users;
 	size_t count;
-} user_list_t;
+} user_list_t; // user list struct that stores the user list pointer and the count of the users
 
 bool load_users(const char* fileName, user_list_t* user_list) { // function to load users from a file
 	if (user_list->users) // freeing up user list if not empty
@@ -79,7 +79,7 @@ bool save_users(const char* fileName, user_list_t* user_list) { // function to s
 	return 1;
 }
 
-void build_vote_results(user_list_t* user_list, int* yes, int* no, int* abs) {
+void build_vote_results(user_list_t* user_list, int* yes, int* no, int* abs) { // function to build vote sums from users
 	*yes = 0;
 	*no = 0;
 	*abs = 0;
