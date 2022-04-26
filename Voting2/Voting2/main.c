@@ -18,7 +18,7 @@ struct user {
 	char username[MAX_STR_LEN];
 	char password[MAX_STR_LEN];
 	vote_res_t vote_res;
-	struct user* next;
+	struct user* next; // user pointer that points to the next user node 
 }; // user struct that stores the username, password, vote result and the next user node
 
 typedef struct user user_t;
@@ -28,11 +28,11 @@ typedef struct {
 	size_t count;
 } linked_user_list_t; // a linked user list struct that stores first user node and the count of the users
 
-linked_user_list_t* create_user_list() {
+linked_user_list_t* create_user_list() { // function to allocate a new list object
 	return calloc(1, sizeof(linked_user_list_t));
 }
 
-void free_user_list(linked_user_list_t* user_list) {
+void free_user_list(linked_user_list_t* user_list) { // function to free the list object
 	user_t* ptr = user_list->users;
 	while (ptr) {
 		user_t* temp = ptr;
@@ -42,14 +42,14 @@ void free_user_list(linked_user_list_t* user_list) {
 	free(user_list);
 }
 
-void add_new_user(linked_user_list_t* user_list, user_t* user) {
+void add_new_user(linked_user_list_t* user_list, user_t* buffer) { // function to create and add a new user
 	user_t** new_user = &user_list->users;
-	while (*new_user)
+	while (*new_user) // searching for the last node
 		new_user = &(*new_user)->next;
 
-	*new_user = calloc(1, sizeof(user_t));
-	memcpy(*new_user, user, sizeof(user_t));
-	user_list->count++;
+	*new_user = calloc(1, sizeof(user_t)); // allocating new user
+	memcpy(*new_user, buffer, sizeof(user_t)); // copying buffer to new user
+	user_list->count++; // incrementing count
 }
 
 linked_user_list_t* load_users(const char* fileName) { // function to load users from a file
@@ -82,7 +82,7 @@ linked_user_list_t* load_users(const char* fileName) { // function to load users
 	fclose(file);
 
 	if (failure) {
-		free_user_list(user_list);
+		free_user_list(user_list); // cleaning up memory in case of failure
 		return NULL;
 	}
 
@@ -222,7 +222,7 @@ int main() {
 
 	save_users(fileName, user_list); // saving reseted votes
 
-	free_user_list(user_list);
+	free_user_list(user_list); // cleaning up memory
 
 	return 0;
 }
