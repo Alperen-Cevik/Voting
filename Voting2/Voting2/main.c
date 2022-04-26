@@ -14,52 +14,82 @@ typedef enum { // enum type for votes
 	VOTE_ABS,
 } vote_res_t; char* vote_res_in_string[3] = { "YES", "NO", "ABSTAINED" }; // to print vote in a readable format
 
-typedef struct {
+struct user {
 	char username[MAX_STR_LEN];
 	char password[MAX_STR_LEN];
 	vote_res_t vote_res;
-} user_t; // user struct that stores the username, password and vote result
+	struct user* next;
+}; // user struct that stores the username, password, vote result and the next user node
+
+typedef struct user user_t;
 
 typedef struct {
 	user_t* users;
 	size_t count;
-} user_list_t; // user list struct that stores the user list pointer and the count of the users
+} linked_user_list_t; // a linked user list struct that stores first user node and the count of the users
 
-bool load_users(const char* fileName, user_list_t* user_list) { // function to load users from a file
-	if (user_list->users) // freeing up user list if not empty
-		free(user_list->users);
-	user_list->count = 0;
+linked_user_list_t* create_user_list() {
+	return calloc(1, sizeof(linked_user_list_t));
+}
 
+void free_user_list(linked_user_list_t* user_list) {
+	user_t* ptr = user_list->users;
+	while (ptr) {
+		user_t* temp = ptr;
+		ptr = ptr->next;
+		free(temp);
+	}
+	free(user_list);
+}
+
+void add_new_user(linked_user_list_t* user_list, user_t* user) {
+	user_t** new_user = &user_list->users;
+	while (*new_user)
+		new_user = &(*new_user)->next;
+
+	*new_user = calloc(1, sizeof(user_t));
+	memcpy(*new_user, user, sizeof(user_t));
+	user_list->count++;
+}
+
+linked_user_list_t* load_users(const char* fileName) { // function to load users from a file
+	linked_user_list_t* user_list = create_user_list();
 	FILE* file; // file handle
 	errno_t res; // errno for debugging
 
+	bool failure = 0;
+
 	if (res = fopen_s(&file, fileName, "r")) {
 		fprintf(stderr, "Cannot open file. Error no: %d\n", res); // write error to stderr
-		return 0;
+		failure = 1;
 	}
 
 	do {
-		user_t buffer = { "", "", VOTE_NONE }; // temporary buffer to store user data
+		user_t buffer = { "", "", VOTE_NONE, NULL }; // temporary buffer to store user data
 		int n;
-		if ((n = fscanf(file, "%31s%31s%d", buffer.username, buffer.password, &buffer.vote_res)) == 3) {
-			if (user_list->users = realloc(user_list->users, ++user_list->count * sizeof(user_t))); // reallocting user list to a bigger size to store the new user
-				memcpy(&user_list->users[user_list->count - 1], &buffer, sizeof(user_t)); // copying buffer to the latest allocted user
-		}
+		if ((n = fscanf(file, "%31s%31s%d", buffer.username, buffer.password, &buffer.vote_res)) == 3)
+			add_new_user(user_list, &buffer);
 		else if (n != EOF) {
 			fputs("Failed to match username, password or vote result.\n", stderr);
 			fclose(file);
-			return 0;
+			failure = 1;
+			break;
 		}
 		else
 			break;
 	} while (1);
-	
+
 	fclose(file);
 
-	return 1;
+	if (failure) {
+		free_user_list(user_list);
+		return NULL;
+	}
+
+	return user_list;
 }
 
-bool save_users(const char* fileName, user_list_t* user_list) { // function to save user data such as usernames, passwords and votes
+bool save_users(const char* fileName, linked_user_list_t* user_list) { // function to save user data such as usernames, passwords and votes
 	FILE* file; // file pointer
 	errno_t res; // errno for debugging
 
@@ -68,8 +98,8 @@ bool save_users(const char* fileName, user_list_t* user_list) { // function to s
 		return EXIT_FAILURE;
 	}
 
-	for (size_t i = 0; i < user_list->count; i++) {
-		if (fprintf(file, "%s %s %d\n", user_list->users[i].username, user_list->users[i].password, user_list->users[i].vote_res) < 0) { // writing formatted user data to the file
+	for (user_t* ptr = user_list->users; ptr; ptr = ptr->next) {
+		if (fprintf(file, "%s %s %d\n", ptr->username, ptr->password, ptr->vote_res) < 0) { // writing formatted user data to the file
 			fputs("Failed to write the user data to the file.\n", stderr);
 			fclose(file);
 			return 0;
@@ -79,12 +109,12 @@ bool save_users(const char* fileName, user_list_t* user_list) { // function to s
 	return 1;
 }
 
-void build_vote_results(user_list_t* user_list, int* yes, int* no, int* abs) { // function to build vote sums from users
+void build_vote_results(linked_user_list_t* user_list, int* yes, int* no, int* abs) { // function to build vote sums from users
 	*yes = 0;
 	*no = 0;
 	*abs = 0;
-	for (size_t i = 0; i < user_list->count; i++) {
-		switch (user_list->users[i].vote_res) {
+	for (user_t* ptr = user_list->users; ptr; ptr = ptr->next) {
+		switch (ptr->vote_res) {
 		case VOTE_NO:
 			(*no)++;
 			break;
@@ -100,19 +130,18 @@ void build_vote_results(user_list_t* user_list, int* yes, int* no, int* abs) { /
 
 int main() {
 	const char* fileName = "users.txt"; // name of the file that stores user data
-	user_list_t user_list = { NULL, 0 };
 
-	load_users(fileName, &user_list); // loading users from file
-	
-	if (!user_list.count) {
-		fputs("No user found.\n", stderr);
+	linked_user_list_t* user_list = load_users(fileName); // loading users from file
+
+	if (!user_list) {
+		fputs("Failed to load users.\n", stderr);
 		return EXIT_FAILURE;
 	}
 
 	int yes = 0, no = 0, abs = 0;
-	build_vote_results(&user_list, &yes, &no, &abs);
+	build_vote_results(user_list, &yes, &no, &abs);
 
-	while (yes < ((user_list.count - abs) / 2 + 1) && no < ((user_list.count - abs) / 2 + 1) && yes + no != user_list.count - abs) { // checking whether the voting has ended or the result is obvious
+	while (yes < ((user_list->count - abs) / 2 + 1) && no < ((user_list->count - abs) / 2 + 1) && yes + no != user_list->count - abs) { // checking whether the voting has ended or the result is obvious
 		user_t* current_user = NULL; // pointer to the logged in user for easier access
 
 		char username[MAX_STR_LEN]; // requesting log in
@@ -122,10 +151,10 @@ int main() {
 		char password[MAX_STR_LEN];
 		printf("Enter your password: ");
 		scanf_s("%31s", password, MAX_STR_LEN);
-		
-		for (size_t i = 0; i < user_list.count; i++) { //checking login data
-			if (!strcmp(username, user_list.users[i].username) && !strcmp(password, user_list.users[i].password)) {
-				current_user = &user_list.users[i]; // login successful
+
+		for (user_t* ptr = user_list->users; ptr; ptr = ptr->next) { //checking login data
+			if (!strcmp(username, ptr->username) && !strcmp(password, ptr->password)) {
+				current_user = ptr; // login successful
 				printf("Logged in to %s\n\n", username);
 			}
 		}
@@ -148,8 +177,8 @@ int main() {
 			switch (action) {
 			case 1:
 				printf("Enter your new password: "); // requesting new password
-				scanf_s("%31s", current_user->password, MAX_STR_LEN); 
-				if (save_users(fileName, &user_list)) // saving new password with users
+				scanf_s("%31s", current_user->password, MAX_STR_LEN);
+				if (save_users(fileName, user_list)) // saving new password with users
 					puts("Your password has been successfully changed.\n");
 				break;
 			case 2:
@@ -167,7 +196,7 @@ int main() {
 					else
 						break;
 				}
-				save_users(fileName, &user_list); // saving votes with users
+				save_users(fileName, user_list); // saving votes with users
 				puts("Your vote has been saved.\n");
 				break;
 			case 3:
@@ -180,20 +209,20 @@ int main() {
 			}
 		}
 
-		build_vote_results(&user_list, &yes, &no, &abs);
+		build_vote_results(user_list, &yes, &no, &abs);
 	}
 
-	if (yes + no != user_list.count - abs) // checking if the result is obvious
+	if (yes + no != user_list->count - abs) // checking if the result is obvious
 		puts("Vote result is obvious, terminating...");
 
-	printf("\nResult of the vote: %s\nYes: %d\nNo: %d\nAbsent: %d\nTotal user count: %d\n", (yes == no ? "DRAW" : (yes > no ? vote_res_in_string[0] : vote_res_in_string[1])), yes, no, abs, (int)user_list.count); // printing results
-	
-	for (size_t i = 0; i < user_list.count; i++) // resetting votes to be able to vote again on start
-		user_list.users[i].vote_res = VOTE_NONE;
+	printf("\nResult of the vote: %s\nYes: %d\nNo: %d\nAbsent: %d\nTotal user count: %d\n", (yes == no ? "DRAW" : (yes > no ? vote_res_in_string[0] : vote_res_in_string[1])), yes, no, abs, (int)user_list->count); // printing results
 
-	save_users(fileName, &user_list); // saving reseted votes
+	for (user_t* ptr = user_list->users; ptr; ptr = ptr->next) // resetting votes to be able to vote again on start
+		ptr->vote_res = VOTE_NONE;
 
-	free(user_list.users);
+	save_users(fileName, user_list); // saving reseted votes
+
+	free_user_list(user_list);
 
 	return 0;
 }
