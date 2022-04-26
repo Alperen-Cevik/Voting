@@ -70,7 +70,7 @@ linked_user_list_t* load_users(const char* fileName) { // function to load users
 		if ((n = fscanf(file, "%31s%31s%d", buffer.username, buffer.password, &buffer.vote_res)) == 3)
 			add_new_user(user_list, &buffer);
 		else if (n != EOF) {
-			fputs("Failed to match username, password or vote result.\n", stderr);
+			fputs("FailedÂ toÂ matchÂ username, passwordÂ orÂ vote result.\n", stderr);
 			fclose(file);
 			failure = 1;
 			break;
@@ -100,13 +100,14 @@ bool save_users(const char* fileName, linked_user_list_t* user_list) { // functi
 
 	for (user_t* ptr = user_list->users; ptr; ptr = ptr->next) {
 		if (fprintf(file, "%s %s %d\n", ptr->username, ptr->password, ptr->vote_res) < 0) { // writing formatted user data to the file
-			fputs("Failed to write the user data to the file.\n", stderr);
+			fputs("FailedÂ toÂ writeÂ the user data to the file.\n", stderr);
 			fclose(file);
-			return 0;
+			return EXIT_FAILURE;
 		}
 	}
+	
 	fclose(file);
-	return 1;
+	return EXIT_SUCCESS;
 }
 
 void build_vote_results(linked_user_list_t* user_list, int* yes, int* no, int* abs) { // function to build vote sums from users
